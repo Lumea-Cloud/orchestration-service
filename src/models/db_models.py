@@ -228,42 +228,9 @@ class Deployment(Base):
         return f"<Deployment {self.deployment_name} ({self.status})>"
 
 
-class ScalingEvent(Base):
-    """Scaling event history"""
-    __tablename__ = "scaling_events"
-    __table_args__ = {"schema": settings.DB_SCHEMA}
-
-    id = Column(Integer, primary_key=True, index=True)
-    event_id = Column(String(255), unique=True, nullable=False, index=True)
-
-    deployment_id = Column(String(255), ForeignKey(f'{settings.DB_SCHEMA}.deployments.deployment_id', ondelete='CASCADE'), nullable=False, index=True)
-    tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-
-    # Scaling details
-    scaling_type = Column(String(50), nullable=False)  # manual, auto, scheduled
-    from_replicas = Column(Integer, nullable=False)
-    to_replicas = Column(Integer, nullable=False)
-
-    # Trigger information
-    trigger_reason = Column(Text, nullable=True)
-    trigger_metrics = Column(JSON, default=dict)
-
-    # Status
-    status = Column(String(50), nullable=False)  # success, failed, in_progress
-    error_message = Column(Text, nullable=True)
-
-    # Timestamps
-    initiated_at = Column(DateTime, server_default=func.now(), nullable=False)
-    completed_at = Column(DateTime, nullable=True)
-
-    def __repr__(self):
-        return f"<ScalingEvent {self.deployment_id} {self.from_replicas}->{self.to_replicas}>"
-
-
 # Create indexes for better query performance
 Index('idx_pod_allocations_tenant', PodAllocation.tenant_id)
 Index('idx_pod_allocations_model', PodAllocation.model_id)
 Index('idx_pod_allocations_status', PodAllocation.status)
 Index('idx_deployments_tenant', Deployment.tenant_id)
 Index('idx_deployments_status', Deployment.status)
-Index('idx_scaling_events_deployment', ScalingEvent.deployment_id)
