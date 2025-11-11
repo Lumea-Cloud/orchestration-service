@@ -14,7 +14,7 @@ from sqlalchemy import select, update
 
 from src.core.database import get_db_context
 from src.core import kubernetes_client as k8s
-from src.models.db_models import Deployment, PodAllocation, ScalingEvent, GPUNode
+from src.models.db_models import Deployment, PodAllocation, GPUNode
 from src.services.resource_allocator import ResourceAllocator
 from src.services.model_registry_client import ModelRegistryClient
 
@@ -416,16 +416,17 @@ class DeploymentManager:
                 logger.info(f"Updated {pod_rows_updated} pod allocation rows to terminated status")
 
                 # Clean up scaling events - mark as terminated but don't delete records for audit
-                result = await db.execute(
-                    update(ScalingEvent)
-                    .where(ScalingEvent.deployment_id == deployment_id)
-                    .values(
-                        status="terminated",
-                        completed_at=datetime.utcnow()
-                    )
-                )
-                scaling_rows_updated = result.rowcount
-                logger.info(f"Updated {scaling_rows_updated} scaling event rows to terminated status")
+                # TODO: ScalingEvent feature removed, re-implement if autoscaling is needed
+                # result = await db.execute(
+                #     update(ScalingEvent)
+                #     .where(ScalingEvent.deployment_id == deployment_id)
+                #     .values(
+                #         status="terminated",
+                #         completed_at=datetime.utcnow()
+                #     )
+                # )
+                # scaling_rows_updated = result.rowcount
+                # logger.info(f"Updated {scaling_rows_updated} scaling event rows to terminated status")
 
                 await db.commit()
                 logger.info(f"Successfully committed database updates for deployment {deployment_id} deletion")
@@ -674,16 +675,17 @@ class DeploymentManager:
                     )
 
                     # Update scaling event
-                    if event_id:
-                        await db.execute(
-                            update(ScalingEvent)
-                            .where(ScalingEvent.event_id == event_id)
-                            .values(
-                                status="success" if scaled else "failed",
-                                completed_at=datetime.utcnow() if scaled else None,
-                                error_message=None if scaled else "Scaling timeout"
-                            )
-                        )
+                    # TODO: ScalingEvent feature removed, re-implement if autoscaling is needed
+                    # if event_id:
+                    #     await db.execute(
+                    #         update(ScalingEvent)
+                    #         .where(ScalingEvent.event_id == event_id)
+                    #         .values(
+                    #             status="success" if scaled else "failed",
+                    #             completed_at=datetime.utcnow() if scaled else None,
+                    #             error_message=None if scaled else "Scaling timeout"
+                    #         )
+                    #     )
 
                     await db.commit()
 
@@ -705,34 +707,36 @@ class DeploymentManager:
 
             else:
                 # Update scaling event as failed
-                if event_id:
-                    async with get_db_context() as db:
-                        await db.execute(
-                            update(ScalingEvent)
-                            .where(ScalingEvent.event_id == event_id)
-                            .values(
-                                status="failed",
-                                error_message="Failed to scale Kubernetes deployment"
-                            )
-                        )
-                        await db.commit()
+                # TODO: ScalingEvent feature removed, re-implement if autoscaling is needed
+                # if event_id:
+                #     async with get_db_context() as db:
+                #         await db.execute(
+                #             update(ScalingEvent)
+                #             .where(ScalingEvent.event_id == event_id)
+                #             .values(
+                #                 status="failed",
+                #                 error_message="Failed to scale Kubernetes deployment"
+                #             )
+                #         )
+                #         await db.commit()
 
                 logger.error(f"Failed to scale Kubernetes deployment {deployment_name}")
 
         except Exception as e:
             logger.error(f"Failed to scale deployment {deployment_id}: {e}", exc_info=True)
 
-            if event_id:
-                async with get_db_context() as db:
-                    await db.execute(
-                        update(ScalingEvent)
-                        .where(ScalingEvent.event_id == event_id)
-                        .values(
-                            status="failed",
-                            error_message=str(e)
-                        )
-                    )
-                    await db.commit()
+            # TODO: ScalingEvent feature removed, re-implement if autoscaling is needed
+            # if event_id:
+            #     async with get_db_context() as db:
+            #         await db.execute(
+            #             update(ScalingEvent)
+            #             .where(ScalingEvent.event_id == event_id)
+            #             .values(
+            #                 status="failed",
+            #                 error_message=str(e)
+            #             )
+            #         )
+            #         await db.commit()
 
     async def restart_deployment(self, deployment_id: str, deployment_name: str):
         """

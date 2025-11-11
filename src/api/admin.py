@@ -14,7 +14,7 @@ from sqlalchemy import select, update, and_, func
 from src.core.database import get_db, AsyncSession
 from src.core import kubernetes_client as k8s
 from src.models.db_models import (
-    Deployment, PodAllocation, GPUNode, ScalingEvent,
+    Deployment, PodAllocation, GPUNode,
     NodeStatus, DeploymentStatus
 )
 from src.models.schemas import (
