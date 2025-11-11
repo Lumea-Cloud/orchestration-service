@@ -1,0 +1,53 @@
+-- Rollback script for foreign key constraints migration
+-- Use this to revert the changes made by 001_add_foreign_key_constraints.sql
+
+BEGIN;
+
+-- 1. Drop foreign key constraints
+ALTER TABLE orchestration.pod_allocations
+  DROP CONSTRAINT IF EXISTS fk_pod_allocation_deployment;
+
+ALTER TABLE orchestration.scaling_events
+  DROP CONSTRAINT IF EXISTS fk_scaling_event_deployment;
+
+-- 2. Drop check constraints
+ALTER TABLE orchestration.deployments
+  DROP CONSTRAINT IF EXISTS chk_deployment_status;
+
+ALTER TABLE orchestration.pod_allocations
+  DROP CONSTRAINT IF EXISTS chk_pod_status;
+
+ALTER TABLE orchestration.scaling_events
+  DROP CONSTRAINT IF EXISTS chk_scaling_event_status;
+
+-- 3. Revert column types back to VARCHAR (if needed)
+-- Note: Only do this if you really need to revert to strings
+-- It's generally better to keep UUID types for proper validation
+
+ALTER TABLE orchestration.deployments
+  ALTER COLUMN model_id TYPE VARCHAR(255) USING model_id::TEXT,
+  ALTER COLUMN tenant_id TYPE VARCHAR(255) USING tenant_id::TEXT;
+
+ALTER TABLE orchestration.pod_allocations
+  ALTER COLUMN model_id TYPE VARCHAR(255) USING model_id::TEXT,
+  ALTER COLUMN tenant_id TYPE VARCHAR(255) USING tenant_id::TEXT;
+
+ALTER TABLE orchestration.scaling_events
+  ALTER COLUMN tenant_id TYPE VARCHAR(255) USING tenant_id::TEXT;
+
+-- Note: We keep the indexes as they don't hurt performance
+
+COMMIT;
+
+-- Verification query
+/*
+SELECT
+  table_name,
+  column_name,
+  data_type,
+  character_maximum_length
+FROM information_schema.columns
+WHERE table_schema = 'orchestration'
+  AND column_name IN ('model_id', 'tenant_id')
+ORDER BY table_name, column_name;
+*/

@@ -1,0 +1,143 @@
+-- Migration script to add foreign key constraints and update column types
+-- This script updates the orchestration service database schema for better referential integrity
+
+-- Note: This migration assumes the orchestration schema exists
+-- Run this after backing up your database
+
+BEGIN;
+
+-- 1. Update model_id columns to UUID type if not already
+-- First, ensure all existing model_ids are valid UUIDs or NULL
+UPDATE orchestration.deployments
+SET model_id = NULL
+WHERE model_id !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  AND model_id IS NOT NULL;
+
+UPDATE orchestration.pod_allocations
+SET model_id = NULL
+WHERE model_id !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  AND model_id IS NOT NULL;
+
+-- 2. Update tenant_id columns to UUID type if not already
+UPDATE orchestration.deployments
+SET tenant_id = NULL
+WHERE tenant_id !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  AND tenant_id IS NOT NULL;
+
+UPDATE orchestration.pod_allocations
+SET tenant_id = NULL
+WHERE tenant_id !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  AND tenant_id IS NOT NULL;
+
+UPDATE orchestration.scaling_events
+SET tenant_id = NULL
+WHERE tenant_id !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  AND tenant_id IS NOT NULL;
+
+-- 3. Alter column types to UUID
+ALTER TABLE orchestration.deployments
+  ALTER COLUMN model_id TYPE UUID USING model_id::UUID,
+  ALTER COLUMN tenant_id TYPE UUID USING tenant_id::UUID;
+
+ALTER TABLE orchestration.pod_allocations
+  ALTER COLUMN model_id TYPE UUID USING model_id::UUID,
+  ALTER COLUMN tenant_id TYPE UUID USING tenant_id::UUID;
+
+ALTER TABLE orchestration.scaling_events
+  ALTER COLUMN tenant_id TYPE UUID USING tenant_id::UUID;
+
+-- 4. Add foreign key constraint for pod_allocations -> deployments
+-- First, clean up any orphaned pod_allocations
+DELETE FROM orchestration.pod_allocations
+WHERE deployment_id NOT IN (
+  SELECT deployment_id FROM orchestration.deployments
+);
+
+-- Add the foreign key constraint with CASCADE (for pod allocations, cascade is appropriate)
+ALTER TABLE orchestration.pod_allocations
+  ADD CONSTRAINT fk_pod_allocation_deployment
+  FOREIGN KEY (deployment_id)
+  REFERENCES orchestration.deployments(deployment_id)
+  ON DELETE CASCADE;
+
+-- 5. Add foreign key constraint for scaling_events -> deployments
+-- First, clean up any orphaned scaling_events
+DELETE FROM orchestration.scaling_events
+WHERE deployment_id NOT IN (
+  SELECT deployment_id FROM orchestration.deployments
+);
+
+-- Add the foreign key constraint with CASCADE (for scaling events, cascade is appropriate)
+ALTER TABLE orchestration.scaling_events
+  ADD CONSTRAINT fk_scaling_event_deployment
+  FOREIGN KEY (deployment_id)
+  REFERENCES orchestration.deployments(deployment_id)
+  ON DELETE CASCADE;
+
+-- 6. Add indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_deployments_model_id ON orchestration.deployments(model_id);
+CREATE INDEX IF NOT EXISTS idx_deployments_tenant_id ON orchestration.deployments(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_pod_allocations_model_id ON orchestration.pod_allocations(model_id);
+CREATE INDEX IF NOT EXISTS idx_pod_allocations_tenant_id ON orchestration.pod_allocations(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_scaling_events_tenant_id ON orchestration.scaling_events(tenant_id);
+
+-- 7. Add check constraint for deployment status
+ALTER TABLE orchestration.deployments
+  ADD CONSTRAINT chk_deployment_status
+  CHECK (status IN ('pending', 'creating', 'running', 'scaling', 'updating', 'terminating', 'terminated', 'failed', 'error'));
+
+-- 8. Add check constraint for pod status
+ALTER TABLE orchestration.pod_allocations
+  ADD CONSTRAINT chk_pod_status
+  CHECK (status IN ('pending', 'running', 'succeeded', 'failed', 'unknown', 'terminated'));
+
+-- 9. Add check constraint for scaling event status
+ALTER TABLE orchestration.scaling_events
+  ADD CONSTRAINT chk_scaling_event_status
+  CHECK (status IN ('pending', 'in_progress', 'completed', 'failed', 'cancelled', 'terminated'));
+
+COMMIT;
+
+-- Verification queries (run these after migration to confirm success)
+/*
+-- Check foreign key constraints
+SELECT
+  tc.constraint_name,
+  tc.table_name,
+  kcu.column_name,
+  ccu.table_name AS foreign_table_name,
+  ccu.column_name AS foreign_column_name,
+  rc.delete_rule
+FROM information_schema.table_constraints AS tc
+JOIN information_schema.key_column_usage AS kcu
+  ON tc.constraint_name = kcu.constraint_name
+  AND tc.table_schema = kcu.table_schema
+JOIN information_schema.constraint_column_usage AS ccu
+  ON ccu.constraint_name = tc.constraint_name
+  AND ccu.table_schema = tc.table_schema
+JOIN information_schema.referential_constraints AS rc
+  ON rc.constraint_name = tc.constraint_name
+WHERE tc.constraint_type = 'FOREIGN KEY'
+  AND tc.table_schema = 'orchestration';
+
+-- Check column types
+SELECT
+  table_name,
+  column_name,
+  data_type,
+  udt_name
+FROM information_schema.columns
+WHERE table_schema = 'orchestration'
+  AND column_name IN ('model_id', 'tenant_id', 'deployment_id')
+ORDER BY table_name, column_name;
+
+-- Check indexes
+SELECT
+  schemaname,
+  tablename,
+  indexname,
+  indexdef
+FROM pg_indexes
+WHERE schemaname = 'orchestration'
+ORDER BY tablename, indexname;
+*/
