@@ -4,7 +4,7 @@ Models module for Orchestration Service
 
 from src.core.database import Base
 from src.models.db_models import (
-    GPUNode, PodAllocation, Deployment, ScalingEvent,
+    GPUNode, PodAllocation, Deployment,
     DeploymentStatus, PodStatus, NodeStatus
 )
 from src.models.schemas import (
@@ -18,7 +18,7 @@ __all__ = [
     "Base",
 
     # Database models
-    "GPUNode", "PodAllocation", "Deployment", "ScalingEvent",
+    "GPUNode", "PodAllocation", "Deployment",
     "DeploymentStatus", "PodStatus", "NodeStatus",
 
     # API schemas
