@@ -13,6 +13,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
+from alembic import command
+from alembic.config import Config
 
 from src.core.config import settings
 from src.core.database import init_db, close_db
@@ -41,6 +43,16 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Orchestration Service...")
 
     try:
+        # Run database migrations
+        logger.info("Running database migrations...")
+        try:
+            alembic_cfg = Config("alembic.ini")
+            command.upgrade(alembic_cfg, "head")
+            logger.info("Database migrations completed successfully")
+        except Exception as e:
+            logger.error(f"Migration failed: {e}")
+            # Don't fail startup, just log
+
         # Initialize database
         await init_db()
         logger.info("Database initialized")
