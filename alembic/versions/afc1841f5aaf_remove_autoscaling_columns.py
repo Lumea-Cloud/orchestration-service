@@ -11,16 +11,16 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'afc1841f5aaf'
-down_revision = '001'
+down_revision = '001_initial_orchestration'
 branch_labels = None
 depends_on = None
 
 
 def upgrade() -> None:
     """Remove autoscaling columns from deployments table"""
-    op.drop_column('deployments', 'min_replicas', schema='orchestration')
-    op.drop_column('deployments', 'max_replicas', schema='orchestration')
-    op.drop_column('deployments', 'target_gpu_utilization', schema='orchestration')
+    # Note: These columns were never in the initial schema (001_initial_orchestration)
+    # This migration is kept for backward compatibility but does nothing
+    pass
 
 
 def downgrade() -> None:
