@@ -24,7 +24,7 @@ AsyncSessionLocal: Optional[sessionmaker] = None
 
 
 async def init_db():
-    """Initialize database connection"""
+    """Initialize database connection and create tables"""
     global engine, AsyncSessionLocal
 
     try:
@@ -46,15 +46,22 @@ async def init_db():
             expire_on_commit=False
         )
 
-        # Test connection and create schema if not exists
+        # Test connection, create schema and tables
         async with engine.begin() as conn:
             # Create schema if not exists
             await conn.execute(
                 text(f"CREATE SCHEMA IF NOT EXISTS {settings.DB_SCHEMA}")
             )
+
+            # Import models to register them with Base
+            from src.models import db_models
+
+            # Create all tables defined in SQLAlchemy models
+            await conn.run_sync(Base.metadata.create_all)
+
             await conn.commit()
 
-        logger.info("Database connection initialized successfully")
+        logger.info("Database connection initialized and tables created successfully")
 
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
