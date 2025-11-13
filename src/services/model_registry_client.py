@@ -59,6 +59,38 @@ class ModelRegistryClient:
             logger.error(f"Error fetching model {model_id}: {e}")
             return None
 
+    async def get_model_admin(self, model_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get model details using admin API (no tenant restrictions).
+
+        Args:
+            model_id: Model ID
+
+        Returns:
+            Model details or None if not found
+        """
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/admin/v1/models/{model_id}"
+                )
+
+                if response.status_code == 200:
+                    return response.json()
+                elif response.status_code == 404:
+                    logger.warning(f"Model {model_id} not found in admin registry")
+                    return None
+                else:
+                    logger.error(f"Error fetching model via admin API: {response.status_code} - {response.text}")
+                    return None
+
+        except httpx.ConnectError:
+            logger.error(f"Failed to connect to Model Registry at {self.base_url}")
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching model {model_id} via admin API: {e}")
+            return None
+
     async def update_model_status(
         self,
         model_id: str,

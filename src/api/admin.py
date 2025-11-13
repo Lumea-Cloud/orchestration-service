@@ -204,24 +204,23 @@ async def create_deployment(
     try:
         logger.info(f"Admin creating deployment for model {request.model_id} for tenant {request.tenant_id}")
 
-        # Validate model ownership/access via Model Registry
+        # Validate model exists via Model Registry (admin can access all models)
         from src.services.model_registry_client import ModelRegistryClient
         model_client = ModelRegistryClient()
 
         try:
-            model_info = await model_client.get_model(request.model_id, request.tenant_id)
+            # Use admin API to get model without tenant restrictions
+            model_info = await model_client.get_model_admin(request.model_id)
 
-            # Check if tenant has access to this model (either owner or public model)
-            if model_info.get("tenant_id") and model_info["tenant_id"] != request.tenant_id:
-                if not model_info.get("is_public", False):
-                    raise HTTPException(
-                        status_code=403,
-                        detail=f"Tenant {request.tenant_id} does not have access to model {request.model_id}"
-                    )
+            if not model_info:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Model {request.model_id} not found"
+                )
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Failed to validate model access: {e}")
+            logger.error(f"Failed to validate model: {e}")
             raise HTTPException(
                 status_code=404,
                 detail=f"Model {request.model_id} not found or access denied"
