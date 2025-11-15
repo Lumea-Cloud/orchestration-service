@@ -115,6 +115,9 @@ class DeploymentResponse(BaseModel):
     updated_at: datetime
     deployed_at: Optional[datetime]
 
+    # Configuration
+    vllm_config: Optional[Dict[str, Any]] = None
+
     # Optional message field for async operations
     message: Optional[str] = None
 
